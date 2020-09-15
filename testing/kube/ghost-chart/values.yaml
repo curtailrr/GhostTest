@@ -1,0 +1,15 @@
+ghostcurrent: "2.2.2"
+ghostupdated: ""
+pullsecret: ""
+dbsecret: ""
+buildtag: latest
+ghostreg: 'ghostcurtailreg2'
+imageCredentials:
+  registry: curt.int.curtailsecurity.com
+  username: "" 
+  password: ""
+curtail:
+  resources:
+    requests:
+      cpu: 100m
+

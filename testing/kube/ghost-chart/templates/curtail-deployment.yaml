@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: curtail
+  name: curtail
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: curtail
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: curtail
+    spec:
+      imagePullSecrets:
+      - name: curtpullsecret
+      containers:
+      - name: curtail
+        image: curt.int.curtailsecurity.com/curtail-sensor:latest
+        imagePullPolicy: Always
+        resources:
+          {{- .Values.curtail.resources | toYaml | nindent 12 }}
+        env:
+        - name: CURTAIL_PATH
+          value: /home/curtail/private
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: curtdb-secret
+              key: url
+        ports:
+        - containerPort: 80
+      restartPolicy: Always
+status: {}

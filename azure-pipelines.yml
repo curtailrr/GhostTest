@@ -1,0 +1,288 @@
+# Docker
+# Build a Docker image 
+# https://docs.microsoft.com/azure/devops/pipelines/languages/docker
+
+trigger:
+- master
+
+resources:
+- repo: self
+
+variables:
+  tag: '2.2.2'
+  k8sNamespaceForPR: "kghostdemo-$(Build.BuildId)"
+  ghostContainerRegistry: ''
+  ghostACRname: ''
+  curtui: ':4430'                            #Ip and Port for the Curtail UI. Can be replaced with any host name
+  kubernetesCluster: ''                      #Kube Cluster name
+  azResourceGroup: ''                         #Azure Resource group
+  azureSubEndpoint: ''                         #Azure Resource Manager (Service Connection)
+  azureKubeConnection: ''
+
+
+
+stages:
+- stage: Build
+  displayName: Build image
+  jobs:  
+  - job: Build
+    displayName: Build
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - task: Docker@2
+      displayName: Build an image
+      inputs:
+        command: buildAndPush
+        dockerfile: '$(Build.SourcesDirectory)/Dockerfile'
+        containerRegistry: $(ghostContainerRegistry)
+        repository: ghost
+        tags: '$(tag)'
+
+    - task: PublishPipelineArtifact@1
+      inputs:
+        artifactName: 'manifests'
+        path: '$(Pipeline.Workspace)'
+
+
+- stage: Test
+  displayName: Testing stage
+  dependsOn: Build
+  jobs:
+  - deployment: Deploy
+    displayName: Deploying test environment
+    pool:
+      vmImage: 'ubuntu-latest'
+    environment: 'GhostCurtail'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: DownloadPipelineArtifact@2
+            inputs:
+              artifactName: 'manifests'
+              downloadPath: '$(System.DefaultWorkingDirectory)/manifests'
+  
+          - task: Kubernetes@1
+            displayName: 'Create a temp namespace'
+            inputs:
+              connectionType: Azure Resource Manager
+              azureSubscriptionEndpoint: $(azureSubEndpoint)
+              azureResourceGroup: $(azResourceGroup)
+              kubernetesCluster: $(kubernetesCluster)
+              useClusterAdmin: true
+              command: create
+              arguments: ns $(k8sNamespaceForPR)
+
+          - task: Kubernetes@1
+            displayName: 'Get db secret'
+            name: task5
+            inputs:
+              connectionType: Azure Resource Manager
+              azureSubscriptionEndpoint: $(azureSubEndpoint)
+              azureResourceGroup: $(azResourceGroup)
+              kubernetesCluster: $(kubernetesCluster)
+              useClusterAdmin: true
+              command: get
+              arguments: secret curtdb-secret -o template="{{ .data.password }}"
+              outputFormat: none
+          - task: Kubernetes@1
+            displayName: 'Get CURT PSW secret'
+            name: task6
+            inputs:
+              connectionType: Azure Resource Manager
+              azureSubscriptionEndpoint: $(azureSubEndpoint)
+              azureResourceGroup: $(azResourceGroup)
+              kubernetesCluster: $(kubernetesCluster)
+              useClusterAdmin: true
+              command: get
+              arguments: secret curtuser-secret -o template="{{ .data.password }}" 
+              outputFormat: none
+
+          - task: Kubernetes@1
+            displayName: 'Get CURT USR secret'
+            name: task7
+            inputs:
+              connectionType: Azure Resource Manager
+              azureSubscriptionEndpoint: $(azureSubEndpoint)
+              azureResourceGroup: $(azResourceGroup)
+              kubernetesCluster: $(kubernetesCluster)
+              useClusterAdmin: true
+              command: get
+              arguments: secret curtuser-secret -o template="{{ .data.username }}" 
+              outputFormat: none
+          - task: KubernetesManifest@0
+            name: bake
+            displayName: Bake k8s manifest from Helm Charts
+            inputs:
+              action: bake
+              releaseName: $(Build.DefinitionName)-$(Build.BuildNumber)
+              helmChart: manifests/s/testing/kube/ghost-chart
+              overrides: |
+                dbsecret:$(task5.KubectlOutput)
+                ghostupdated:$(tag)
+                imageCredentials.password:$(task6.KubectlOutput)
+                imageCredentials.username:$(task7.KubectlOutput)
+
+
+          - task: Kubernetes@1
+            displayName: 'Deploy to temp namespace'
+            inputs:
+              connectionType: Azure Resource Manager
+              azureSubscriptionEndpoint: $(azureSubEndpoint)
+              azureResourceGroup: $(azResourceGroup)
+              kubernetesCluster: $(kubernetesCluster)
+              useClusterAdmin: true
+              command: apply
+              arguments: -f $(bake.manifestsBundle)
+              namespace: $(k8sNamespaceForPR)
+          - task: Kubernetes@1
+            displayName: 'Wait for deployment to finish'
+            inputs:
+              connectionType: Azure Resource Manager
+              azureSubscriptionEndpoint: $(azureSubEndpoint)
+              azureResourceGroup: $(azResourceGroup)
+              kubernetesCluster: $(kubernetesCluster)
+              useClusterAdmin: true
+              command: wait
+              arguments: --timeout=300s --for=condition=Ready pod --all
+              namespace: $(k8sNamespaceForPR)
+              
+          - bash:
+              sleep 25s   
+          - task: Kubernetes@1
+            displayName: 'Get sensor IP'
+            name: sensorIP
+            inputs:
+              connectionType: Azure Resource Manager
+              azureSubscriptionEndpoint: $(azureSubEndpoint)
+              azureResourceGroup: $(azResourceGroup)
+              kubernetesCluster: $(kubernetesCluster)
+              useClusterAdmin: true
+              command: get
+              arguments: service curtail -o template="\"{{ (index .status.loadBalancer.ingress 0).ip }}\""
+              namespace: $(k8sNamespaceForPR)
+              outputFormat: none  
+          - bash: echo "##vso[task.setvariable variable=myOutputVar;isOutput=true]$(echo '$(sensorIP.KubectlOutput)' | tr -d ',' )" 
+            name: setIPStep
+          - task: Kubernetes@1
+            displayName: 'Get sensor ID'
+            name: sensorID
+            inputs:
+              connectionType: Azure Resource Manager
+              azureSubscriptionEndpoint: $(azureSubEndpoint)
+              azureResourceGroup: $(azResourceGroup)
+              kubernetesCluster: $(kubernetesCluster)
+              useClusterAdmin: true
+              command: logs
+              arguments: deploy/curtail 
+              namespace: $(k8sNamespaceForPR)
+              outputFormat: none 
+          
+          - bash: 
+              echo "##vso[task.setvariable variable=myOutputVar;isOutput=true]$(echo '$(sensorID.KubectlOutput)' | grep 'Sensor ID' | cut -d ':' -f3 | cut -d ' ' -f2 | cut -d ' ' -f1 ) "
+            name: setIDStep
+          
+
+
+
+  - job: NetworkTraffic
+    displayName: Network Generation
+    dependsOn: Deploy
+    variables:
+    # map the output variable from Deploy into this job
+      sensorIP: $[ dependencies.Deploy.outputs['Deploy.setIPStep.myOutputVar'] ]
+      sensorID: $[ dependencies.Deploy.outputs['Deploy.setIDStep.myOutputVar'] ]
+
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:   
+        - bash: |
+              export CURTUI=$(curtui)
+              export SENSOR_ID=$(sensorID)
+              export SENSOR_IP=$(sensorIP)
+
+              echo 'EXECUTE SELENIUM HERE'
+              cd testing/selenium && ./run_test.sh
+              ls
+              cat test-results.xml
+
+          displayName: Selenium Testing 
+        - task: PublishTestResults@2
+          inputs:
+            testResultsFormat: 'JUnit' 
+            testResultsFiles: 'testing/selenium/test-results.xml'
+       
+        - script : 
+            echo $(sensorID)
+          name: showID
+          displayName: Showing Sensor ID
+          #- task: Kubernetes@1
+          #  displayName: 'delete the temp namespace'
+          #  inputs:
+          #    connectionType: Azure Resource Manager
+          #    azureSubscriptionEndpoint: curtailAzureGhostRM
+          #    azureResourceGroup: craymondAks
+          #    kubernetesCluster: GhostCurtail
+          #    useClusterAdmin: true
+          #    command: delete
+          #    arguments: ns $(k8sNamespaceForPR)
+
+
+  - job: ReGradeGate
+    displayName: ReGrade Gate
+    dependsOn: 
+    - Deploy
+    - NetworkTraffic
+    variables:
+      sensorID: $[ dependencies.Deploy.outputs['Deploy.setIDStep.myOutputVar'] ]
+
+    pool: server
+    steps:
+      - task: AzureFunction@1
+        inputs:
+          function: https://regradecall2.azurewebsites.net/api/HttpTrigger1
+          key: 
+          queryParameters: curtui=$(curtui)&sensorID=$(sensorID)
+          method: GET
+
+- stage: Deploy
+  displayName: Deploy stage
+  dependsOn: Test
+  jobs:
+  - deployment: Deploy
+    displayName: Deploy job
+    pool:
+      vmImage: 'ubuntu-latest'
+    environment: 'GhostCurtail'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: DownloadPipelineArtifact@2
+            inputs:
+              artifactName: 'manifests'
+              downloadPath: '$(System.DefaultWorkingDirectory)/manifests'
+
+          - task: KubernetesManifest@0
+            displayName: Create imagePullSecret
+            inputs:
+              action: createSecret
+              kubernetesServiceConnection: $(azureKubeConnection)
+              secretName: 'secret'
+              namespace: 'default'
+              dockerRegistryEndpoint: $(ghostContainerRegistry)
+
+
+          - task: KubernetesManifest@0
+            displayName: Deploy to Kubernetes cluster
+            inputs:
+              action: deploy
+              kubernetesServiceConnection: $(azureKubeConnection)
+              namespace: 'default'
+              manifests: |
+                $(System.DefaultWorkingDirectory)/manifests/s/deployment.yaml
+                $(System.DefaultWorkingDirectory)/manifests/s/service.yaml
+              imagePullSecrets: 'secret'
+              containers: |
+                $(ghostACRname).azurecr.io/ghost:$(tag)

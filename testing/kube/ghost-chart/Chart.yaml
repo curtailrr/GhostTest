@@ -1,0 +1,8 @@
+apiVersion: v2
+name: chart
+description: Curtail ReGrade Helm Chart
+version: 0.0.1
+keywords:
+  - chart
+sources:
+home:

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: ghost-current
+  name: ghost-current
+  namespace: default
+spec:
+  ports:
+  - name: "2368"
+    port: 2368
+    targetPort: 2368
+  selector:
+    app: ghost-current
+#type: clusterIp # LoadBalancer

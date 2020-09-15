@@ -1,0 +1,5 @@
+selenium==3.141.0
+PyVirtualDisplay==0.2.5
+pytest==5.4.3
+allure-pytest==2.8.11
+webdriver-manager
