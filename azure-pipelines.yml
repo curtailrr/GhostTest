@@ -273,7 +273,7 @@ stages:
               namespace: 'default'
               dockerRegistryEndpoint: $(ghostContainerRegistry)
 
-         - task: KubernetesManifest@0
+          - task: KubernetesManifest@0
             name: bakeGhost
             displayName: Bake k8s Ghost manifest from Helm Charts
             inputs:
