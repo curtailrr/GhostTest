@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: ghost-current
+  name: ghost-current
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ghost-current
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: ghost-current
+    spec:
+      containers:
+        #- image: ghostcurtailreg2.azurecr.io/ghost
+      - image: {{ printf "%s.azurecr.io/ghost" .Values.ghostreg | indent 10 }}
+        name: ghost-current
+        ports:
+        - containerPort: 2369
+      restartPolicy: Always
+status: {}
