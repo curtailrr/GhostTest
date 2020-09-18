@@ -273,6 +273,20 @@ stages:
               namespace: 'default'
               dockerRegistryEndpoint: $(ghostContainerRegistry)
 
+         - task: KubernetesManifest@0
+            name: bakeGhost
+            displayName: Bake k8s Ghost manifest from Helm Charts
+            inputs:
+              action: bake
+              releaseName: $(Build.DefinitionName)-$(Build.BuildNumber)
+              helmChart: manifests/s/ghost-chart
+              overrides: |
+                ghostreg:$(ghostACRname)
+              #dbsecret:$(task5.KubectlOutput)
+              #ghostupdated:$(tag)
+              #imageCredentials.password:$(task6.KubectlOutput)
+              #imageCredentials.username:$(task7.KubectlOutput)
+
 
           - task: KubernetesManifest@0
             displayName: Deploy to Kubernetes cluster
@@ -280,9 +294,9 @@ stages:
               action: deploy
               kubernetesServiceConnection: $(azureKubeConnection)
               namespace: 'default'
-              manifests: |
-                $(System.DefaultWorkingDirectory)/manifests/s/deployment.yaml
-                $(System.DefaultWorkingDirectory)/manifests/s/service.yaml
+              manifests: $(bakeGhost.manifestsBundle) #|
+              #$(System.DefaultWorkingDirectory)/manifests/s/deployment.yaml
+              #$(System.DefaultWorkingDirectory)/manifests/s/service.yaml
               imagePullSecrets: 'secret'
               containers: |
                 $(ghostACRname).azurecr.io/ghost:$(tag)
