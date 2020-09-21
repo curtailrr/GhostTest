@@ -19,6 +19,5 @@ subjects:
   namespace: {{ printf "%s" .Values.kube.namespace | indent 10 }}
 roleRef:
   kind: Role
-    #kind: ClusterRole
   name: svc-reader
   apiGroup: rbac.authorization.k8s.io
