@@ -35,4 +35,10 @@ spec:
         ports:
         - containerPort: 80
       restartPolicy: Always
+      initContainers:
+      - name: init-myservice
+        image: curlimages/curl:latest
+          #image: busybox:1.28
+        command: ['sh', '-c', {{- printf "until curl -ik -H 'Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)' https://kubernetes.default.svc.cluster.local/api/v1/namespaces/%s/services/curtail | grep 'ip';  do echo waiting for myservice; sleep 2; done" .Values.kube.namespace | quote }} ]
+          #command: ['/bin/sh', '-c', 'cat /var/run/secrets/kubernetes.io/serviceaccount/token' ]
 status: {}

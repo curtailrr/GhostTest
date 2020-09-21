@@ -19,9 +19,6 @@ spec:
     spec:
       containers:
       - image: {{ printf "%s.azurecr.io/ghost:%s" .Values.ghostreg .Values.ghostupdated | indent 10 }}
-        #- image: {{ printf "ghostcurtailreg.azurecr.io/ghost:%s" .Values.ghostupdated | indent 10 }}
-        #- image: {{ printf "%s/jghost:%s" .Values.registry .Values.buildtag | indent 10 }}
-        #- image: ghostcurtailreg.azurecr.io/ghost:2.2.3
         imagePullPolicy: Always
         name: ghost-updated
         ports:

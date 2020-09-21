@@ -20,9 +20,6 @@ spec:
     spec:
       containers:
       - image: {{ printf "%s.azurecr.io/ghost:%s" .Values.ghostreg .Values.ghostcurrent | indent 10 }}
-        #- image: {{ printf "ghostcurtailreg.azurecr.io/ghost:%s" .Values.ghostcurrent | indent 10 }}
-        #- image: {{ printf "%s/jghost:2.2.2" .Values.registry | indent 10 }}
-        #- image: ghostcurtailreg.azurecr.io/ghost:2.2.2
         name: ghost-current
         ports:
         - containerPort: 2369

@@ -3,7 +3,9 @@ ghostupdated: ""
 pullsecret: ""
 dbsecret: ""
 buildtag: latest
-ghostreg: 'ghostcurtailreg2'
+ghostreg: ''
+kube:
+  namespace: ""
 imageCredentials:
   registry: curt.int.curtailsecurity.com
   username: "" 
