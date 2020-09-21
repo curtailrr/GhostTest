@@ -123,6 +123,7 @@ stages:
                 ghostupdated:$(tag)
                 imageCredentials.password:$(task6.KubectlOutput)
                 imageCredentials.username:$(task7.KubectlOutput)
+                kube.namespace:$(k8sNamespaceForPR)
 
 
           - task: Kubernetes@1
