@@ -7,6 +7,7 @@ import unittest
 import pytest
 #import allure
 import time
+import requests
 import os
 from pyvirtualdisplay import Display
 from selenium import webdriver
@@ -202,7 +203,8 @@ class ReGrade(unittest.TestCase):
     '''
     #def test_a(self):
     def test_regrade(self):
-        
+       
+        self.updateKnownAlerts()
         #self.driver.get("https://curtui:4430/#/reports?sensor="+self.SENSOR_ID)
         try:
             self.driver.get("https://"+self.CURTUI+"/#/reports?sensor="+self.SENSOR_ID)
@@ -233,7 +235,21 @@ class ReGrade(unittest.TestCase):
         self.assertTrue(self.are_elements_present(By.XPATH, 
                                              "//*[starts-with(@style,'fill: rgb(255, 255, 255); stroke: rgb(221, 4, 4);')]"))
         #self.assertTrue(len(node) == 0) #If there are nodes that are red we will return false and fail this case
-    
+
+    def updateKnownAlerts(self, cert=False):
+    #def udpdateKnownAlerts(sensorID, curtui, cert=False):
+
+        url = 'https://'+self.CURTUI+'/api/update-known-all?setname=default&sensorID='+self.SENSOR_ID
+        #url = f'https://{self.CURTUI}/api/update-known-all?setname=default&sensorID={self.SENSOR_ID}'
+
+        request = requests.Session()
+        request.auth = ('admin', 'Curtail')
+
+        if cert:
+            request.post(url, verify="certfile")
+        else:
+            request.post(url, verify=False)
+
     def is_element_clickable(self, how, what):
         try:
             WebDriverWait(self.driver,10).until(EC.element_to_be_clickable((how,what)))
