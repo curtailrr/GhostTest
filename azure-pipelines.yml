@@ -205,8 +205,6 @@ stages:
 
               echo 'EXECUTE SELENIUM HERE'
               cd testing/selenium && ./run_test.sh
-              ls
-              cat test-results.xml
 
           displayName: Selenium Testing 
         - task: PublishTestResults@2
@@ -218,16 +216,17 @@ stages:
             echo $(sensorID)
           name: showID
           displayName: Showing Sensor ID
-          #- task: Kubernetes@1
-          #  displayName: 'delete the temp namespace'
-          #  inputs:
-          #    connectionType: Azure Resource Manager
-          #    azureSubscriptionEndpoint: curtailAzureGhostRM
-          #    azureResourceGroup: craymondAks
-          #    kubernetesCluster: GhostCurtail
-          #    useClusterAdmin: true
-          #    command: delete
-          #    arguments: ns $(k8sNamespaceForPR)
+
+        - task: Kubernetes@1
+          displayName: 'delete the temp namespace'
+          inputs:
+            connectionType: Azure Resource Manager
+            azureSubscriptionEndpoint: $(azureSubEndpoint)
+            azureResourceGroup: $(azResourceGroup)
+            kubernetesCluster: $(kubernetesCluster)
+            useClusterAdmin: true
+            command: delete
+            arguments: ns $(k8sNamespaceForPR)
 
 
   - job: ReGradeGate
@@ -283,10 +282,6 @@ stages:
               helmChart: manifests/s/ghost-chart
               overrides: |
                 ghostreg:$(ghostACRname)
-              #dbsecret:$(task5.KubectlOutput)
-              #ghostupdated:$(tag)
-              #imageCredentials.password:$(task6.KubectlOutput)
-              #imageCredentials.username:$(task7.KubectlOutput)
 
 
           - task: KubernetesManifest@0
@@ -295,9 +290,7 @@ stages:
               action: deploy
               kubernetesServiceConnection: $(azureKubeConnection)
               namespace: 'default'
-              manifests: $(bakeGhost.manifestsBundle) #|
-              #$(System.DefaultWorkingDirectory)/manifests/s/deployment.yaml
-              #$(System.DefaultWorkingDirectory)/manifests/s/service.yaml
+              manifests: $(bakeGhost.manifestsBundle) 
               imagePullSecrets: 'secret'
               containers: |
                 $(ghostACRname).azurecr.io/ghost:$(tag)
