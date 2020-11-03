@@ -18,6 +18,7 @@ variables:
   azResourceGroup: ''                         #Azure Resource group
   azureSubEndpoint: ''                         #Azure Resource Manager (Service Connection)
   azureKubeConnection: ''
+  functionURL: 'https://regradecall2.azurewebsites.net/api/HttpTrigger1'
 
 
 
@@ -241,7 +242,8 @@ stages:
     steps:
       - task: AzureFunction@1
         inputs:
-          function: https://regradecall2.azurewebsites.net/api/HttpTrigger1
+          function: $(functionURL)
+            #function: https://regradecall2.azurewebsites.net/api/HttpTrigger1
           key: 
           queryParameters: curtui=$(curtui)&sensorID=$(sensorID)
           method: GET
