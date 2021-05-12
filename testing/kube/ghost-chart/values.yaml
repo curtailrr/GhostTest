@@ -3,7 +3,7 @@ ghostupdated: ""
 pullsecret: ""
 dbsecret: ""
 buildtag: latest
-ghostreg: ''
+ghostreg: 'ghostcurtailregxyz'
 kube:
   namespace: ""
 imageCredentials:
