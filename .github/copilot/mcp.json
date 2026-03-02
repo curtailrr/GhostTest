@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "regrade": {
+      "type": "http",
+      "url": "https://api.regrade.curtail.com/api/v1/mcp",
+      "headers": {
+        "Authorization": "Bearer $COPILOT_MCP_REGRADE_API_KEY"
+      },
+      "tools": ["*"]
+    }
+  }
+}
